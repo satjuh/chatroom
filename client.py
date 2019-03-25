@@ -20,7 +20,6 @@ class Listen(Thread):
         while alive:
             try:
                 msg = self.socket.recv(2048).decode("utf-8")
-                print(msg)
                 Gui.insert_msg(self.app, msg)
             except timeout:
                 continue
@@ -29,14 +28,15 @@ class Listen(Thread):
 
 
 class Gui(Tk):
-    def __init__(self):
+    def __init__(self, server):
         Tk.__init__(self)
         # Internal variables
+        self.server = server
 
         # Frame that houses scroll bar and msg_list
         self.frame = Frame(self)
         self.scrollbar = Scrollbar(self)
-        self.msg_list = Listbox(self.frame, height=50, width=100, yscrollcommand=self.scrollbar.set)
+        self.msg_list = Listbox(self.frame, height=30, width=100, yscrollcommand=self.scrollbar.set)
 
         # Input box for reading user input and saving it to self.msg variable
         self.msg = StringVar()
@@ -57,27 +57,33 @@ class Gui(Tk):
         self.send_button.pack()
 
     def send(self, event=NONE):
-        self.insert_msg(self.msg.get())
+        msg = self.msg.get()
+        self.insert_msg(msg)
+        self.server.send(bytes(msg, "utf-8"))
+        self.msg.set("")
 
     def quit(self):
+        msg = bytes("<username>" + " disconnected", "utf-8")
+        self.server.send(msg)
         global alive
         alive = False
         self.destroy()
 
     def insert_msg(self, msg):
         self.msg_list.insert(END, msg)
-        self.msg.set("")
 
 
 
 if __name__ == "__main__":
     try:
-        app = Gui()
 
         # Initialize socket
         server = socket(AF_INET, SOCK_STREAM)
         server.connect((HOST, PORT))
         server.settimeout(3)
+
+        # Start the Gui
+        app = Gui(server)
 
         # Starting the listening Thread
         t = Listen(server, app)
