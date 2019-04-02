@@ -1,8 +1,14 @@
 from socket import socket, AF_INET, SOCK_STREAM, timeout
 from threading import Thread, current_thread
 from datetime import datetime
-import signal
+from encrypt import encrypt, decrypt
 
+import signal
+import time
+
+
+
+# Global variables
 list_of_clients = []
 threads = []
 TIMEOUT = 10
@@ -29,8 +35,7 @@ def sigint(sig, frame):
 def broadcast(sender, msg, name):
     for client in list_of_clients:
         if client != sender:
-            space = bytes(" ", "utf-8")
-            client.send(name + space + msg)
+            client.send(encrypt(name + "> " + msg))
 
 
 def remove_connection(conn, addr):
@@ -44,56 +49,66 @@ def remove_thread(thread):
 
 def service_client(conn, addr):
     welcome = "Welcome to the chatroom"
-    conn.send(welcome.encode())
+    conn.send(encrypt(welcome))
     conn.settimeout(TIMEOUT)
     while alive:
         try:
             msg = conn.recv(2048)
+            decrypted = decrypt(msg).decode("utf-8")
             if msg:
-                broadcast(conn, msg, bytes(addr[0], "utf-8"))
+                broadcast(conn, decrypted, str(addr[0]))
             else:
                 conn.close()
                 remove_connection(conn, addr)
                 remove_thread(current_thread())
                 break
+
         except timeout:
             continue
 
+        except ConnectionResetError:
+            log_print("Connection " + str(addr[0]) + " " + str(addr[1]) + " closed.")
+            break
+
 
 def main():
-    try:
-        log_print("Starting the server with " + str(HOST) + " " + str(PORT))
-        with socket(AF_INET, SOCK_STREAM) as server:
-            server.bind((HOST, PORT))
-            server.listen()
-            server.settimeout(TIMEOUT)
-            while alive:
-                try:
-                    conn, addr = server.accept()
-                    log_print("Ip" + str(addr[0]) + " port: " + str(addr[1]) + " connected")
-                    list_of_clients.append(conn)
-                    t = Thread(target=service_client, args=[conn, addr])
-                    threads.append(t)
-                    t.start()
-                except timeout:
-                    continue
+    wait = 1
 
-        #Telling users that the server is shuttind down
-        for client in list_of_clients:
-            msg = "Server closing...".encode()
-            client.send(msg)
-        # Joining threads to close the server
-        for thread in threads:
-            thread.join()
+    while True:
+        try:
+            log_print("Starting the server with " + str(HOST) + " " + str(PORT))
+            with socket(AF_INET, SOCK_STREAM) as server:
+                server.bind((HOST, PORT))
+                server.listen()
+                server.settimeout(TIMEOUT)
+                log_print("Server started with " + str(HOST) + " " + str(PORT))
+                while alive:
+                    try:
+                        conn, addr = server.accept()
+                        log_print("Ip" + str(addr[0]) + " port: " + str(addr[1]) + " connected")
+                        list_of_clients.append(conn)
+                        t = Thread(target=service_client, args=[conn, addr])
+                        threads.append(t)
+                        t.start()
+                    except timeout:
+                        continue
 
-        log_print("Server shutdown")
+            # Telling users that the server is shutting down
+            for client in list_of_clients:
+                msg = "Server closing..."
+                client.send(encrypt(msg))
 
-    except OSError:
-        log_print("Adress already in use")
+            # Joining threads to close the server
+            for thread in threads:
+                thread.join()
 
+            log_print("Server shutdown")
+            break
 
-
-
+        except OSError:
+            time.sleep(wait)
+            wait = wait * 2
+            log_print("Address already in use")
 
 if __name__ == "__main__":
     # Signal handler for stopping the server

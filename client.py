@@ -2,6 +2,9 @@ from threading import Thread
 from socket import socket, AF_INET, SOCK_STREAM, timeout
 from tkinter import *
 
+# Own wrapper for encryption
+from encrypt import decrypt, encrypt
+
 # Included while testing
 # Later argv parameters
 HOST = "127.0.0.1"
@@ -19,8 +22,12 @@ class Listen(Thread):
         server.settimeout(3)
         while alive:
             try:
-                msg = self.socket.recv(2048).decode("utf-8")
-                Gui.insert_msg(self.app, msg)
+                msg = self.socket.recv(2048)
+                decrypted = decrypt(msg).decode("utf-8")
+                Gui.insert_msg(self.app, decrypted)
+
+                if decrypted == "Server closing...":
+                    break
             except timeout:
                 continue
             except OSError:
@@ -59,12 +66,12 @@ class Gui(Tk):
     def send(self, event=NONE):
         msg = self.msg.get()
         self.insert_msg(msg)
-        self.server.send(bytes(msg, "utf-8"))
+        self.server.send(encrypt(msg))
         self.msg.set("")
 
     def quit(self):
-        msg = bytes("<username>" + " disconnected", "utf-8")
-        self.server.send(msg)
+        encrypted = encrypt("<username>" + " disconnected")
+        self.server.send(encrypted)
         global alive
         alive = False
         self.destroy()
