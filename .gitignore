@@ -1,3 +1,6 @@
 # Pycharm configs
 venv
 .idea
+
+# Python cached binarys
+__pycache__
