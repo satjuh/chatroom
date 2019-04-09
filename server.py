@@ -1,15 +1,18 @@
 from socket import socket, AF_INET, SOCK_STREAM, timeout
-from threading import Thread, current_thread
+from threading import Thread, current_thread, Lock
 from datetime import datetime
-from encrypt import encrypt, decrypt
+from encrypt import encrypt, decrypt, generate_keys
+from Crypto.PublicKey import RSA
 
 import signal
 import time
 
 
+# Locking shared resources
+lock = Lock()
 
 # Global variables
-list_of_clients = []
+list_of_clients = dict()
 threads = []
 TIMEOUT = 10
 
@@ -33,29 +36,60 @@ def sigint(sig, frame):
 # msg = message to be sent in bytes "utf-8"
 # name = name of the sender in bytes "utf-8"
 def broadcast(sender, msg, name):
-    for client in list_of_clients:
-        if client != sender:
-            client.send(encrypt(name + "> " + msg))
+    with lock:
+        for client in list(list_of_clients.keys()):
+            if client != sender:
+                send = name + "> " + msg
+                client.send(encrypt(send, list_of_clients[client]))
 
 
 def remove_connection(conn, addr):
-    if conn in list_of_clients:
-        list_of_clients.remove(conn)
-        log_print("Connection " + str(addr[0]) + " " + str(addr[1]) + " closed.")
+    with lock:
+        if conn in list(list_of_clients.keys()):
+            del list_of_clients[conn]
+            log_print("Connection " + str(addr[0]) + " " + str(addr[1]) + " closed.")
 
 def remove_thread(thread):
-    if thread in threads:
-        threads.remove(thread)
+    with lock:
+        if thread in threads:
+            threads.remove(thread)
+
+
+def start_connection(conn, addr):
+    private, public = generate_keys()
+    conn.settimeout(3)
+    try:
+        conn.send(public)
+        client_public = conn.recv(2048)
+
+        if client_public:
+            with lock:
+                list_of_clients[conn] = client_public
+                return client_public, private
+        else:
+            return False, False
+    except timeout:
+        return False, False
+
 
 def service_client(conn, addr):
+    # Start the connection by exchanging public and private keys
+    public_key, private = start_connection(conn, addr)
+
+    if not public_key or not private:
+        conn.close()
+        remove_connection(conn, addr)
+        remove_thread(current_thread())
+        return
+
     welcome = "Welcome to the chatroom"
-    conn.send(encrypt(welcome))
+    conn.send(encrypt(welcome, public_key))
     conn.settimeout(TIMEOUT)
     while alive:
         try:
             msg = conn.recv(2048)
-            decrypted = decrypt(msg).decode("utf-8")
             if msg:
+                decrypted = decrypt(msg, private).decode("utf-8")
                 broadcast(conn, decrypted, str(addr[0]))
             else:
                 conn.close()
@@ -63,20 +97,28 @@ def service_client(conn, addr):
                 remove_thread(current_thread())
                 break
 
+
         except timeout:
             continue
 
         except ConnectionResetError:
+            conn.close()
+            remove_connection(conn, addr)
+            remove_thread(current_thread())
             log_print("Connection " + str(addr[0]) + " " + str(addr[1]) + " closed.")
             break
+
+        except BrokenPipeError:
+            log_print("PipeError: why I don't know?")
+            continue
 
 
 def main():
     wait = 1
 
-    while True:
+    while alive:
         try:
-            log_print("Starting the server with " + str(HOST) + " " + str(PORT))
+            log_print("Trying to start the server with " + str(HOST) + " " + str(PORT))
             with socket(AF_INET, SOCK_STREAM) as server:
                 server.bind((HOST, PORT))
                 server.listen()
@@ -86,7 +128,8 @@ def main():
                     try:
                         conn, addr = server.accept()
                         log_print("Ip" + str(addr[0]) + " port: " + str(addr[1]) + " connected")
-                        list_of_clients.append(conn)
+                        with lock:
+                            list_of_clients[conn] = ""
                         t = Thread(target=service_client, args=[conn, addr])
                         threads.append(t)
                         t.start()
@@ -94,9 +137,10 @@ def main():
                         continue
 
             # Telling users that the server is shutting down
-            for client in list_of_clients:
-                msg = "Server closing..."
-                client.send(encrypt(msg))
+            with lock:
+                for client in list(list_of_clients.keys()):
+                    msg = "Server closing..."
+                    client.send(encrypt(msg, list_of_clients[client]))
 
             # Joining threads to close the server
             for thread in threads:
