@@ -3,7 +3,7 @@ from socket import socket, AF_INET, SOCK_STREAM, timeout
 from tkinter import *
 
 # Own wrapper for encryption
-from encrypt import decrypt, encrypt, generate_keys
+from encrypt import decrypt_keys, encrypt_keys, generate_keys
 
 # Included while testing
 # Later argv parameters
@@ -25,7 +25,7 @@ class Listen(Thread):
             try:
                 msg = self.socket.recv(2048)
                 if msg:
-                    decrypted = decrypt(msg, private).decode("utf-8")
+                    decrypted = decrypt_keys(msg, private).decode("utf-8")
                     Gui.insert_msg(self.app, decrypted)
 
                 if decrypted == "Server closing...":
@@ -81,11 +81,11 @@ class Gui(Tk):
     def send(self, event=NONE):
         msg = self.msg.get()
         self.insert_msg(msg)
-        self.server.send(encrypt(msg, self.public))
+        self.server.send(encrypt_keys(msg, self.public))
         self.msg.set("")
 
     def quit(self):
-        encrypted = encrypt("<username>" + " disconnected", self.public)
+        encrypted = encrypt_keys("<username>" + " disconnected", self.public)
         self.server.send(encrypted)
         global alive
         alive = False

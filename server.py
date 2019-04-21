@@ -1,7 +1,7 @@
 from socket import socket, AF_INET, SOCK_STREAM, timeout
 from threading import Thread, current_thread, Lock
 from datetime import datetime
-from encrypt import encrypt, decrypt, generate_keys
+from encrypt import encrypt_keys, decrypt_keys, generate_keys
 from Crypto.PublicKey import RSA
 
 import signal
@@ -40,7 +40,7 @@ def broadcast(sender, msg, name):
         for client in list(list_of_clients.keys()):
             if client != sender:
                 send = name + "> " + msg
-                client.send(encrypt(send, list_of_clients[client]))
+                client.send(encrypt_keys(send, list_of_clients[client]))
 
 
 def remove_connection(conn, addr):
@@ -83,20 +83,19 @@ def service_client(conn, addr):
         return
 
     welcome = "Welcome to the chatroom"
-    conn.send(encrypt(welcome, public_key))
+    conn.send(encrypt_keys(welcome, public_key))
     conn.settimeout(TIMEOUT)
     while alive:
         try:
             msg = conn.recv(2048)
             if msg:
-                decrypted = decrypt(msg, private).decode("utf-8")
+                decrypted = decrypt_keys(msg, private).decode("utf-8")
                 broadcast(conn, decrypted, str(addr[0]))
             else:
                 conn.close()
                 remove_connection(conn, addr)
                 remove_thread(current_thread())
                 break
-
 
         except timeout:
             continue
@@ -140,7 +139,7 @@ def main():
             with lock:
                 for client in list(list_of_clients.keys()):
                     msg = "Server closing..."
-                    client.send(encrypt(msg, list_of_clients[client]))
+                    client.send(encrypt_keys(msg, list_of_clients[client]))
 
             # Joining threads to close the server
             for thread in threads:

@@ -1,6 +1,8 @@
-from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Cipher import PKCS1_OAEP, AES
 from Crypto import Random
 from Crypto.PublicKey import RSA
+from Crypto.Util import Counter
+from os import urandom
 
 
 """
@@ -9,7 +11,7 @@ msg = message to be encrypted
 publickey = publickey used in encryption as received from generate_keys
 return bytes
 """
-def encrypt(msg, publickey):
+def encrypt_keys(msg, publickey):
     if type(msg) == str:
         msg = bytes(msg, "utf-8")
     key = RSA.importKey(publickey, passphrase=None)
@@ -23,7 +25,7 @@ msg = message to decrypted
 privatekey = users private key
 returns bytes
 """
-def decrypt(msg, privatekey):
+def decrypt_keys(msg, privatekey):
     try:
         cipher = PKCS1_OAEP.new(privatekey)
         ciphertext = cipher.decrypt(msg)
@@ -38,11 +40,24 @@ returns:
     publickey = RSA public key that is given for others to encrypt messages with
 """
 def generate_keys():
-    modulus_length = 256 * 16
+    modulus_length = 256 * 8
     privatekey = RSA.generate(modulus_length, Random.new().read)
     publickey = privatekey.publickey().exportKey(format='PEM', passphrase=None, pkcs=1)
     return privatekey, publickey
 
 def create_encryptionkey():
-    return "secret_password"
+    return urandom(32)
 
+def encrypt_AES(msg, psw):
+    cnt = Counter.new(128)
+    if not isinstance(msg, bytes):
+        msg = bytes(msg, "utf-8")
+    enc = AES.new(psw, AES.MODE_CTR, counter=cnt)
+    return enc.encrypt(msg)
+
+def decrypt_AES(msg, psw):
+    cnt = Counter.new(128)
+    if not isinstance(msg, bytes):
+        msg = bytes(msg, "utf-8")
+    dec = AES.new(psw, AES.MODE_CTR, counter=cnt)
+    return dec.decrypt(msg)
