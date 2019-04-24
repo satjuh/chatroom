@@ -3,7 +3,7 @@ from socket import socket, AF_INET, SOCK_STREAM, timeout
 from tkinter import *
 
 # Own wrapper for encryption
-from encrypt import decrypt_keys, encrypt_keys, generate_keys
+from encrypt import decrypt_keys, generate_keys, encrypt_AES, decrypt_AES
 
 # Included while testing
 # Later argv parameters
@@ -13,11 +13,11 @@ alive = True
 
 # Thread class for listening new messages
 class Listen(Thread):
-    def __init__(self, socket, app, private):
+    def __init__(self, socket, app, password):
         Thread.__init__(self)
         self.socket = socket
         self.app = app
-        self.private = private
+        self.password= password
 
     def run(self):
         server.settimeout(3)
@@ -25,8 +25,9 @@ class Listen(Thread):
             try:
                 msg = self.socket.recv(2048)
                 if msg:
-                    decrypted = decrypt_keys(msg, private).decode("utf-8")
-                    Gui.insert_msg(self.app, decrypted)
+                    decrypted = decrypt_AES(msg, self.password)
+                    if decrypted:
+                        Gui.insert_msg(self.app, decrypted.decode("utf-8"))
 
                 if decrypted == "Server closing...":
                     break
@@ -38,22 +39,34 @@ class Listen(Thread):
 def start_connection(socket):
     private, public = generate_keys()
     server.settimeout(5)
-    while True:
+    for i in range(0, 5):
         try:
             server_publickey = socket.recv(2048)
             socket.send(public)
             if server_publickey:
                 return private, server_publickey
         except timeout:
-            return False, False
+            pass
+    return False, False
 
+def exchange_password(socket, private):
+    server.settimeout(5)
+
+    for i in range(0, 5):
+        try:
+            password = decrypt_keys(socket.recv(2048), private)
+            if password:
+                socket.send(encrypt_AES("Test msg", password))
+                return password
+        except timeout:
+            pass
 
 class Gui(Tk):
-    def __init__(self, server, public):
+    def __init__(self, server, password):
         Tk.__init__(self)
         # Internal variables
         self.server = server
-        self.public = public
+        self.password = password
 
         # Frame that houses scroll bar and msg_list
         self.frame = Frame(self)
@@ -81,11 +94,11 @@ class Gui(Tk):
     def send(self, event=NONE):
         msg = self.msg.get()
         self.insert_msg(msg)
-        self.server.send(encrypt_keys(msg, self.public))
+        self.server.send(encrypt_AES(msg, self.password))
         self.msg.set("")
 
     def quit(self):
-        encrypted = encrypt_keys("<username>" + " disconnected", self.public)
+        encrypted = encrypt_AES("<username>" + " disconnected", self.password)
         self.server.send(encrypted)
         global alive
         alive = False
@@ -105,15 +118,16 @@ if __name__ == "__main__":
 
         # Create encryption keys
         private, public = start_connection(server)
+        password = exchange_password(server, private)
 
         if not private or not public:
             raise ConnectionAbortedError
 
         # Start the Gui
-        app = Gui(server, public)
+        app = Gui(server, password)
 
         # Starting the listening Thread
-        t = Listen(server, app, private)
+        t = Listen(server, app, password)
         t.start()
         app.mainloop()
 

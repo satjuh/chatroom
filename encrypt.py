@@ -12,7 +12,7 @@ publickey = publickey used in encryption as received from generate_keys
 return bytes
 """
 def encrypt_keys(msg, publickey):
-    if type(msg) == str:
+    if isinstance(msg, str):
         msg = bytes(msg, "utf-8")
     key = RSA.importKey(publickey, passphrase=None)
     cipher = PKCS1_OAEP.new(key)
