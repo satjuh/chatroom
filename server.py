@@ -2,6 +2,7 @@ from socket import socket, AF_INET, SOCK_STREAM, timeout
 from threading import Thread, current_thread, Lock
 from datetime import datetime
 from encrypt import encrypt_keys, generate_keys, decrypt_AES, encrypt_AES, create_encryptionkey
+from parser import parser
 
 import signal
 import time
@@ -15,10 +16,7 @@ list_of_clients = dict()
 threads = []
 TIMEOUT = 10
 
-# Included while testing
-# Later argv parameters
-HOST = "127.0.0.1"
-PORT = 6000
+# Set global alive variable for threads
 alive = True
 
 # Print message to log
@@ -125,12 +123,24 @@ def service_client(conn, addr):
             log_print("Connection " + str(addr[0]) + " " + str(addr[1]) + " closed.")
             break
 
+        
+        except UnicodeDecodeError:
+            log_print("Connection " + str(addr[0]) + " " + str(addr[1]) + " sent a malformed message.")
         except BrokenPipeError:
-            log_print("PipeError: why I don't know?")
+            log_print("BrokenPipeError: One of threads has crashed:")
             continue
 
 
 def main():
+    signal.signal(signal.SIGINT, sigint)
+    
+    args = parser()
+
+    # Default HOST = "127.0.0.1"
+    HOST = args.ip_address
+    # Default PORT = 6000
+    PORT = args.port_number
+
     wait = 1
 
     while alive:
@@ -173,5 +183,4 @@ def main():
 
 if __name__ == "__main__":
     # Signal handler for stopping the server
-    signal.signal(signal.SIGINT, sigint)
     main()

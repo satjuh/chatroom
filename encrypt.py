@@ -57,7 +57,5 @@ def encrypt_AES(msg, psw):
 
 def decrypt_AES(msg, psw):
     cnt = Counter.new(128)
-    if not isinstance(msg, bytes):
-        msg = bytes(msg, "utf-8")
     dec = AES.new(psw, AES.MODE_CTR, counter=cnt)
     return dec.decrypt(msg)

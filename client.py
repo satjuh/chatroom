@@ -1,14 +1,13 @@
 from threading import Thread
 from socket import socket, AF_INET, SOCK_STREAM, timeout
 from tkinter import *
+from tkinter import font as tkFont
+from parser import parser
 
 # Own wrapper for encryption
 from encrypt import decrypt_keys, generate_keys, encrypt_AES, decrypt_AES
 
-# Included while testing
-# Later argv parameters
-HOST = "127.0.0.1"
-PORT = 6000
+# Set global alive variable for threads
 alive = True
 
 # Thread class for listening new messages
@@ -75,7 +74,8 @@ class Gui(Tk):
 
         # Input box for reading user input and saving it to self.msg variable
         self.msg = StringVar()
-        self.input_box = Entry(self, textvariable=self.msg)
+        self.msg.trace("w", self.__callback)
+        self.input_box = Entry(self, textvariable=self.msg, width=100)
         self.input_box.bind("<Return>", self.send)
 
         # Buttons for closing and sending
@@ -91,9 +91,15 @@ class Gui(Tk):
         self.close_button.pack()
         self.send_button.pack()
 
+    def __callback(self, *dummy):
+        value = self.msg.get()
+        size = 2048
+        if len(bytes(value,"utf-8")) >= size:
+            self.msg.set(value[0:len(value)-1])
+
     def send(self, event=NONE):
         msg = self.msg.get()
-        self.insert_msg(msg)
+        self.insert_msg("<you> "+ msg)
         self.server.send(encrypt_AES(msg, self.password))
         self.msg.set("")
 
@@ -110,6 +116,11 @@ class Gui(Tk):
 
 
 if __name__ == "__main__":
+    #default HOST = "127.0.0.1"
+    args = parser()
+    HOST = args.ip_address
+    #default PORT = 6000
+    PORT = args.port_number 
     try:
 
         # Initialize socket
