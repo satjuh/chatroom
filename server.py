@@ -20,6 +20,7 @@ TIMEOUT = 10
 alive = True
 
 # Print message to log
+# msg = msg to be printed
 def log_print(msg):
     print(datetime.now().time(), msg)
 
@@ -39,19 +40,20 @@ def broadcast(sender, msg, name):
                 send = name + "> " + msg
                 client.send(encrypt_AES(send, list_of_clients[client]))
 
-
+# Remove the given connection from dict.
 def remove_connection(conn, addr):
     with lock:
         if conn in list(list_of_clients.keys()):
             del list_of_clients[conn]
             log_print("Connection " + str(addr[0]) + " " + str(addr[1]) + " closed.")
 
+# Remove thread from thread pool
 def remove_thread(thread):
     with lock:
         if thread in threads:
             threads.remove(thread)
 
-
+# Set public and private keys with the client
 def start_connection(conn):
     private, public = generate_keys()
     conn.settimeout(5)
@@ -68,6 +70,9 @@ def start_connection(conn):
 
     return False, False
 
+# Exchange AES encryption key with client
+# conn = client that the encryption key is to be sent
+# public_key = clients public key used in encrypting the encryption key
 def exchange_pass(conn, public_key):
     conn.settimeout(5)
     password = create_encryptionkey()
@@ -82,7 +87,9 @@ def exchange_pass(conn, public_key):
         return False
 
 
-
+# Listen to clients messages and react when a message is received.
+# conn = clients connection
+# addr = clients andress information (ip, port etc...)
 def service_client(conn, addr):
     # Start the connection by exchanging public and private keys
     public_key, private = start_connection(conn)
@@ -123,15 +130,16 @@ def service_client(conn, addr):
             log_print("Connection " + str(addr[0]) + " " + str(addr[1]) + " closed.")
             break
 
-        
         except UnicodeDecodeError:
             log_print("Connection " + str(addr[0]) + " " + str(addr[1]) + " sent a malformed message.")
+
         except BrokenPipeError:
             log_print("BrokenPipeError: One of threads has crashed:")
             continue
 
 
 def main():
+    # signal handler for stopping the server
     signal.signal(signal.SIGINT, sigint)
     
     args = parser()
@@ -177,10 +185,10 @@ def main():
             break
 
         except OSError:
-            time.sleep(wait)
-            wait = wait * 2
-            log_print("Address already in use")
+            if alive:
+                time.sleep(wait)
+                wait = wait * 2
+                log_print("Address already in use")
 
 if __name__ == "__main__":
-    # Signal handler for stopping the server
     main()
