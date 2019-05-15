@@ -6,13 +6,17 @@ from parser import parser
 
 import signal
 import time
+from random import randint
 
 
 # Locking shared resources
 lock = Lock()
+name_lock = Lock()
 
 # Global variables
 list_of_clients = dict()
+client_names = dict()
+used_names = []
 threads = []
 TIMEOUT = 10
 
@@ -37,13 +41,23 @@ def sigint(sig, frame):
 # msg = message to be sent in bytes "utf-8"
 # name = name of the sender in bytes "utf-8"
 """
-def broadcast(sender, msg, name):
+def broadcast(sender, msg):
     with lock:
         for client in list(list_of_clients.keys()):
             if client != sender:
-                send = name + "> " + msg
-                client.send(encrypt_AES(send, list_of_clients[client]))
+                send = "< " list_of_clients[client][1] + " > " + msg
+                client.send(encrypt_AES(send, list_of_clients[client][0]))
 
+# Create random "anonymous username" that is unique
+def create_username():
+    while True:
+        name = "anon" + str(randint(1, 99))
+        if not name in used_names:
+            with name_lock:
+                used_names.append(name)
+                return name
+        
+        
 # Remove the given connection from dict.
 def remove_connection(conn, addr):
     with lock:
@@ -87,7 +101,7 @@ def exchange_pass(conn, public_key):
             conn.send(encrypt_keys(password, public_key))
             msg = conn.recv(2048)
             if decrypt_AES(msg, password):
-                list_of_clients[conn] = password
+                list_of_clients[conn] = [password, create_username()]
                 return True
     except timeout:
         return False
@@ -111,7 +125,7 @@ def service_client(conn, addr):
         return
 
     with lock:
-        password = list_of_clients[conn]
+        password = list_of_clients[conn][0]
     welcome = "Welcome to the chatroom"
     conn.send(encrypt_AES(welcome, password))
     conn.settimeout(TIMEOUT)
@@ -120,7 +134,7 @@ def service_client(conn, addr):
             msg = conn.recv(2048)
             if msg:
                 decrypted = decrypt_AES(msg, password).decode("utf-8")
-                broadcast(conn, decrypted, str(addr[0]))
+                broadcast(conn, decrypted)
             else:
                 conn.close()
                 remove_connection(conn, addr)
@@ -171,7 +185,7 @@ def main():
                         conn, addr = server.accept()
                         log_print("Ip" + str(addr[0]) + " port: " + str(addr[1]) + " connected")
                         with lock:
-                            list_of_clients[conn] = ""
+                            list_of_clients[conn] = [] 
                         t = Thread(target=service_client, args=[conn, addr])
                         threads.append(t)
                         t.start()
@@ -182,7 +196,7 @@ def main():
             with lock:
                 for client in list(list_of_clients.keys()):
                     msg = "Server closing..."
-                    client.send(encrypt_AES(msg, list_of_clients[client]))
+                    client.send(encrypt_AES(msg, list_of_clients[client][0]))
 
             # Joining threads to close the server
             for thread in threads:
