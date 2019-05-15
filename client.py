@@ -1,7 +1,6 @@
 from threading import Thread
 from socket import socket, AF_INET, SOCK_STREAM, timeout
 from tkinter import *
-from tkinter import font as tkFont
 from parser import parser
 
 # Own wrapper for encryption
@@ -36,7 +35,7 @@ class Listen(Thread):
             except OSError:
                 break
 """
-# Exchagen public key with the server in variable socket.
+# Exchange public key with the server in variable socket.
 # socket = servers socket variable
 """
 def start_connection(socket):
@@ -114,8 +113,6 @@ class Gui(Tk):
 
     # Quit program 
     def quit(self):
-        encrypted = encrypt_AES("<username>" + " disconnected", self.password)
-        self.server.send(encrypted)
         global alive
         alive = False
         self.destroy()

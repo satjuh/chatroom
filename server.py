@@ -41,11 +41,11 @@ def sigint(sig, frame):
 # msg = message to be sent in bytes "utf-8"
 # name = name of the sender in bytes "utf-8"
 """
-def broadcast(sender, msg):
+def broadcast(sender, msg, name):
     with lock:
         for client in list(list_of_clients.keys()):
             if client != sender:
-                send = "< " list_of_clients[client][1] + " > " + msg
+                send = "<" + name + "> " + msg
                 client.send(encrypt_AES(send, list_of_clients[client][0]))
 
 # Create random "anonymous username" that is unique
@@ -126,7 +126,11 @@ def service_client(conn, addr):
 
     with lock:
         password = list_of_clients[conn][0]
-    welcome = "Welcome to the chatroom"
+        name = list_of_clients[conn][1]
+        welcome = "Welcome to the chatroom. There are currently " + str(len(list_of_clients)) + " users online."
+
+    broadcast(conn, name + " connected.", "server")
+
     conn.send(encrypt_AES(welcome, password))
     conn.settimeout(TIMEOUT)
     while alive:
@@ -134,8 +138,9 @@ def service_client(conn, addr):
             msg = conn.recv(2048)
             if msg:
                 decrypted = decrypt_AES(msg, password).decode("utf-8")
-                broadcast(conn, decrypted)
+                broadcast(conn, decrypted, name)
             else:
+                broadcast(conn, name + " disconnected.", "server")
                 conn.close()
                 remove_connection(conn, addr)
                 remove_thread(current_thread())
@@ -155,7 +160,7 @@ def service_client(conn, addr):
             log_print("Connection " + str(addr[0]) + " " + str(addr[1]) + " sent a malformed message.")
 
         except BrokenPipeError:
-            log_print("BrokenPipeError: One of threads has crashed:")
+            log_print("BrokenPipeError: One or more threads have crashed:")
             continue
 
 
