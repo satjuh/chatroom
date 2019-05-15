@@ -1,6 +1,8 @@
 import argparse
 
-# Argument parser for both the client and server program.
+"""
+Argument parser for both the client and server program.
+"""
 def parser():
     parser = argparse.ArgumentParser(description='A simple python chatroom server/client')
     parser.add_argument('-ip', '--ip_address', help="Ip adress for the server.", default="127.0.0.1")

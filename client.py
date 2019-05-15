@@ -35,9 +35,10 @@ class Listen(Thread):
                 continue
             except OSError:
                 break
-
+"""
 # Exchagen public key with the server in variable socket.
 # socket = servers socket variable
+"""
 def start_connection(socket):
     private, public = generate_keys()
     server.settimeout(5)

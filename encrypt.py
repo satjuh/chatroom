@@ -45,9 +45,17 @@ def generate_keys():
     publickey = privatekey.publickey().exportKey(format='PEM', passphrase=None, pkcs=1)
     return privatekey, publickey
 
+"""
+Take 32 bits from urandom to be the AES encryption key. 
+"""
 def create_encryptionkey():
     return urandom(32)
 
+"""
+Encrypt the message with the given password
+msg = message to be encrypted 
+psw = 32 bit password used for encryption
+"""
 def encrypt_AES(msg, psw):
     cnt = Counter.new(128)
     if not isinstance(msg, bytes):
@@ -55,6 +63,11 @@ def encrypt_AES(msg, psw):
     enc = AES.new(psw, AES.MODE_CTR, counter=cnt)
     return enc.encrypt(msg)
 
+""" 
+Decrypt the given message with the given password.
+msg = message to decrypted
+psw = password used in encryption
+"""
 def decrypt_AES(msg, psw):
     cnt = Counter.new(128)
     dec = AES.new(psw, AES.MODE_CTR, counter=cnt)

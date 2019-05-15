@@ -19,8 +19,10 @@ TIMEOUT = 10
 # Set global alive variable for threads
 alive = True
 
+"""
 # Print message to log
 # msg = msg to be printed
+"""
 def log_print(msg):
     print(datetime.now().time(), msg)
 
@@ -30,9 +32,11 @@ def sigint(sig, frame):
     global alive
     alive = False
 
+"""
 # Sender = the sender of the message
 # msg = message to be sent in bytes "utf-8"
 # name = name of the sender in bytes "utf-8"
+"""
 def broadcast(sender, msg, name):
     with lock:
         for client in list(list_of_clients.keys()):
@@ -70,9 +74,11 @@ def start_connection(conn):
 
     return False, False
 
+"""
 # Exchange AES encryption key with client
 # conn = client that the encryption key is to be sent
 # public_key = clients public key used in encrypting the encryption key
+"""
 def exchange_pass(conn, public_key):
     conn.settimeout(5)
     password = create_encryptionkey()
@@ -86,10 +92,11 @@ def exchange_pass(conn, public_key):
     except timeout:
         return False
 
-
+"""
 # Listen to clients messages and react when a message is received.
 # conn = clients connection
 # addr = clients andress information (ip, port etc...)
+"""
 def service_client(conn, addr):
     # Start the connection by exchanging public and private keys
     public_key, private = start_connection(conn)
