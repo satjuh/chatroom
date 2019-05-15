@@ -18,6 +18,7 @@ class Listen(Thread):
         self.app = app
         self.password= password
 
+    # Main functionality of listening thread 
     def run(self):
         server.settimeout(3)
         while alive:
@@ -35,6 +36,8 @@ class Listen(Thread):
             except OSError:
                 break
 
+# Exchagen public key with the server in variable socket.
+# socket = servers socket variable
 def start_connection(socket):
     private, public = generate_keys()
     server.settimeout(5)
@@ -48,6 +51,7 @@ def start_connection(socket):
             pass
     return False, False
 
+# Get AES encryption key from the server.
 def exchange_password(socket, private):
     server.settimeout(5)
 
@@ -60,6 +64,7 @@ def exchange_password(socket, private):
         except timeout:
             pass
 
+# Class for the tkinter gui 
 class Gui(Tk):
     def __init__(self, server, password):
         Tk.__init__(self)
@@ -91,18 +96,21 @@ class Gui(Tk):
         self.close_button.pack()
         self.send_button.pack()
 
+    # To limit how much text is allowed to be typed into the entry field.
     def __callback(self, *dummy):
         value = self.msg.get()
         size = 2048
         if len(bytes(value,"utf-8")) >= size:
             self.msg.set(value[0:len(value)-1])
 
+    # Send message to the server
     def send(self, event=NONE):
         msg = self.msg.get()
         self.insert_msg("<you> "+ msg)
         self.server.send(encrypt_AES(msg, self.password))
         self.msg.set("")
 
+    # Quit program 
     def quit(self):
         encrypted = encrypt_AES("<username>" + " disconnected", self.password)
         self.server.send(encrypted)
@@ -110,6 +118,7 @@ class Gui(Tk):
         alive = False
         self.destroy()
 
+    # Insert message to the Qui in the correct item.
     def insert_msg(self, msg):
         self.msg_list.insert(END, msg)
 
