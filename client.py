@@ -100,7 +100,8 @@ class Gui(Tk):
     # To limit how much text is allowed to be typed into the entry field.
     def __callback(self, *dummy):
         value = self.msg.get()
-        size = 2048
+        # Server suplied user name is max 10 bytes
+        size = 2048 - 10 
         if len(bytes(value,"utf-8")) >= size:
             self.msg.set(value[0:len(value)-1])
 
